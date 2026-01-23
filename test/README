@@ -9,3 +9,8 @@ in the development cycle.
 
 More information about PlatformIO Unit Testing:
 - https://docs.platformio.org/en/latest/advanced/unit-testing/index.html
+
+
+硬件：ESP8266 + 57步进电机 + 3:1减速比。
+功能：支持偏心臂加减速算法，实验频率调控。
+接线：D1->DIR, D2->PUL。
