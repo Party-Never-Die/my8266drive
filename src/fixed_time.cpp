@@ -1,38 +1,37 @@
 #include <Arduino.h>
 
-const int PUL_PIN = 4; // D2
-const int DIR_PIN = 5; // D1
+const int PUL_PIN = 4; 
+const int DIR_PIN = 5; 
 
 // ==========================================
-// 【实验参数设置区 2】固定时间，修改圈数
+// 【参数修改区】固定时间，控制圈数
 // ==========================================
-const float TARGET_TIME_SECONDS = 40.0;  // 固定 40 秒
-const float TARGET_CIRCLES = 2.0;        // 修改这里：1.0, 2.0, 3.0, 4.0, 5.0
-const int RUN_DIR = 1;                   // 1为正转，0为反转
+const float TARGET_TIME_SECONDS = 40.0;  // 固定的 40 秒
+const float TARGET_CIRCLES = 4.0;        // 目标圈数 (修改这里: 1, 2, 3...)
+const int RUN_DIR = 1;                   
 // ==========================================
 
-// 硬件参数 (1600细分, 90:1减速比)
 const int MICRO_STEP = 1600;      
-const int REDUCTION_RATIO = 90;    
+const int REDUCTION_RATIO = 3;    
 const long STEPS_PER_REV = (long)MICRO_STEP * REDUCTION_RATIO; 
 
-// 运行参数
+const uint32_t START_FREQ = 300;  
+
 long totalSteps = 0;
-uint32_t targetFreq = 0;
-const uint32_t START_FREQ = 100; 
-const int RAMP_STEPS = 2000;     
+uint32_t calculatedMaxFreq = 0;
+long dynamicRampSteps = 0;
 
-void executeExperiment() {
-  digitalWrite(DIR_PIN, RUN_DIR ? HIGH : LOW);
+void rotateArm(long steps, uint32_t maxFreq, int dir) {
+  digitalWrite(DIR_PIN, dir ? HIGH : LOW);
   
-  for (long i = 0; i < totalSteps; i++) {
-    uint32_t currentFreq = targetFreq;
+  for (long i = 0; i < steps; i++) {
+    uint32_t currentFreq = maxFreq;
 
-    if (i < RAMP_STEPS) {
-      currentFreq = START_FREQ + (targetFreq - START_FREQ) * i / RAMP_STEPS;
+    if (i < dynamicRampSteps) {
+      currentFreq = START_FREQ + (maxFreq - START_FREQ) * i / dynamicRampSteps;
     } 
-    else if (i > totalSteps - RAMP_STEPS) {
-      currentFreq = START_FREQ + (targetFreq - START_FREQ) * (totalSteps - i) / RAMP_STEPS;
+    else if (i > steps - dynamicRampSteps) {
+      currentFreq = START_FREQ + (maxFreq - START_FREQ) * (steps - i) / dynamicRampSteps;
     }
 
     uint32_t halfPeriod = 500000 / currentFreq;
@@ -42,7 +41,7 @@ void executeExperiment() {
     digitalWrite(PUL_PIN, LOW);
     delayMicroseconds(halfPeriod);
     
-    if (i % 100 == 0) yield(); 
+    if (i % 200 == 0) yield(); 
   }
 }
 
@@ -51,24 +50,39 @@ void setup() {
   pinMode(PUL_PIN, OUTPUT);
   pinMode(DIR_PIN, OUTPUT);
   
-  // --- 核心计算逻辑 ---
   totalSteps = TARGET_CIRCLES * STEPS_PER_REV;
-  targetFreq = totalSteps / TARGET_TIME_SECONDS;
+  calculatedMaxFreq = totalSteps / TARGET_TIME_SECONDS;
 
-  Serial.println("\n=== 实验 2：固定时间，控制圈数 ===");
-  Serial.print("目标时间: "); Serial.print(TARGET_TIME_SECONDS); Serial.println(" 秒");
-  Serial.print("目标圈数: "); Serial.println(TARGET_CIRCLES);
-  Serial.print("自动计算的运行频率: "); Serial.print(targetFreq); Serial.println(" Hz");
+  if (calculatedMaxFreq > 1500) {
+    calculatedMaxFreq = 1500;
+  }
+  if (calculatedMaxFreq < START_FREQ) {
+    calculatedMaxFreq = START_FREQ; 
+  }
+
+  // --- 【关键修改】动态计算加速步数，使其耗时约 0.5 秒 ---
+  float avgFreq = (START_FREQ + calculatedMaxFreq) / 2.0;
+  dynamicRampSteps = avgFreq * 0.5; 
+
+  if (dynamicRampSteps > totalSteps / 2) {
+    dynamicRampSteps = totalSteps / 3; 
+  }
+
+  Serial.println("\n=== 实验 B：固定时间 (0.5s 极速起步版) ===");
+  Serial.print("期望耗时: "); Serial.print(TARGET_TIME_SECONDS); Serial.println(" 秒");
+  Serial.print("目标: "); Serial.print(TARGET_CIRCLES); Serial.println(" 圈");
+  Serial.print("自动计算运行频率: "); Serial.print(calculatedMaxFreq); Serial.println(" Hz");
+  Serial.print("加速分配步数: "); Serial.println(dynamicRampSteps);
   
-  delay(3000);
+  delay(100); 
 
-  Serial.println(">>> 实验开始...");
+  Serial.println(">>> 运行开始");
   uint32_t startTime = millis();
   
-  executeExperiment();
+  rotateArm(totalSteps, calculatedMaxFreq, RUN_DIR);
   
   uint32_t endTime = millis();
-  Serial.print("<<< 实验结束。实际耗时: ");
+  Serial.print("<<< 运行结束。实际耗时: ");
   Serial.print((endTime - startTime) / 1000.0);
   Serial.println(" 秒");
 }
