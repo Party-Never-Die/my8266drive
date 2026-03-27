@@ -6,8 +6,8 @@ const int DIR_PIN = 5;
 // ==========================================
 // 【参数修改区】固定时间，控制圈数
 // ==========================================
-const float TARGET_TIME_SECONDS = 40.0;  // 固定的 40 秒
-const float TARGET_CIRCLES = 4.0;        // 目标圈数 (修改这里: 1, 2, 3...)
+const float TARGET_TIME_SECONDS = 48.0;  // 固定的 40 秒
+const float TARGET_CIRCLES = 3.0;        // 目标圈数 (修改这里: 1, 2, 3...)
 const int RUN_DIR = 1;                   
 // ==========================================
 
